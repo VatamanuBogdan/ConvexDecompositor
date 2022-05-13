@@ -168,7 +168,6 @@ int main(int argc,const char **argv)
 		printf("-a <true/false>         : Whether or not to run asynchronously. Default is 'true'\n");
 		printf("-l <minEdgeLength>      : Minimum size of a voxel edge. Default value is 2 voxels.\n");
 		printf("-p <true/false>         : If false, splits hulls in the middle. If true, tries to find optimal split plane location. False by default.\n");
-		printf("-o <obj/stl>            : Export the convex hulls as a series of wavefront OBJ files or STL files.\n");
 	}
 	else
 	{
@@ -400,151 +399,28 @@ int main(int argc,const char **argv)
 						fname++;
 					}
 				}
-
-				char outputName[2048];
-				snprintf(outputName,sizeof(outputName),"%s_decompose.stl", baseName.c_str());
-
-				if ( dot && format != ExportFormat::NONE)
 				{
-					if ( format == ExportFormat::STL )
 					{
-						for (uint32_t i=0; i<iface->GetNConvexHulls(); i++)
-						{
-							VHACD::IVHACD::ConvexHull ch;
-							iface->GetConvexHull(i,ch);
-							uint32_t baseIndex = 1;
-							char hullName[2048];
-							snprintf(hullName,sizeof(hullName),"%s%03d.stl", baseName.c_str(), i);
-							FILE *fph = fopen(hullName,"wb");
-							if ( fph )
-							{
-								printf("Saving hull %s\n", hullName);
-								fprintf(fph,"solid %s\n", hullName);
-								for (uint32_t j=0; j<ch.m_nTriangles; j++)
-								{
-									uint32_t i1 = ch.m_triangles[j*3+0];
-									uint32_t i2 = ch.m_triangles[j*3+1];
-									uint32_t i3 = ch.m_triangles[j*3+2];
-
-									const double *p1 = &ch.m_points[i1*3];
-									const double *p2 = &ch.m_points[i2*3];
-									const double *p3 = &ch.m_points[i3*3];
-
-									double normal[3];
-									FLOAT_MATH::fm_computePlane(p1,p2,p3,normal);
-									fprintf(fph," facet normal %0.9f %0.9f %0.9f\n", normal[0], normal[1], normal[2]);
-									fprintf(fph,"  outer loop\n");
-									fprintf(fph,"   vertex %0.9f %0.9f %0.9f\n", p1[0], p1[1], p1[2]);
-									fprintf(fph,"   vertex %0.9f %0.9f %0.9f\n", p2[0], p2[1], p2[2]);
-									fprintf(fph,"   vertex %0.9f %0.9f %0.9f\n", p3[0], p3[1], p3[2]);
-									fprintf(fph,"  endloop\n");
-									fprintf(fph," endfacet\n");
-								}
-								fprintf(fph,"endsolid %s\n", hullName);
-								fclose(fph);
-							}
-						}
-					}
-					else if ( format == ExportFormat::WAVEFRONT )
-					{
-						for (uint32_t i=0; i<iface->GetNConvexHulls(); i++)
-						{
-							VHACD::IVHACD::ConvexHull ch;
-							iface->GetConvexHull(i,ch);
-							char outputName[2048];
-							snprintf(outputName,sizeof(outputName),"%s%03d.obj", baseName.c_str(), i);
-							FILE *fph = fopen(outputName,"wb");
-							uint32_t baseIndex = 1;
-							if ( fph )
-							{
-								printf("Saving:%s\n", outputName);
-								for (uint32_t j=0; j<ch.m_nPoints; j++)
-								{
-									const double *pos = &ch.m_points[j*3];
-									fprintf(fph,"v %0.9f %0.9f %0.9f\n", pos[0], pos[1], pos[2]);
-								}
-								for (uint32_t j=0; j<ch.m_nTriangles; j++)
-								{
-									uint32_t i1 = ch.m_triangles[j*3+0]+baseIndex;
-									uint32_t i2 = ch.m_triangles[j*3+1]+baseIndex;
-									uint32_t i3 = ch.m_triangles[j*3+2]+baseIndex;
-									fprintf(fph,"f %d %d %d\n", i1, i2, i3);
-								}
-								fclose(fph);
-							}
-							else
-							{
-								printf("Failed to open output file '%s' for write access\n", outputName);
-							}
-						}
-					}
-				}
-				{
-					// Save the decomposition into a single wavefront OBJ file
-					FILE *fph = fopen("decomp.obj", "wb");
-					if ( fph )
-					{
-						printf("Saving Convex Decomposition results of %d convex hulls to 'decomp.obj'\n", iface->GetNConvexHulls());
+						fprintf(stdout , "Start flushing Convex Decomposition results of %d convex hulls to stderr\n", iface->GetNConvexHulls());
 						uint32_t baseIndex = 1;
 						for (uint32_t i=0; i<iface->GetNConvexHulls(); i++)
 						{
 							VHACD::IVHACD::ConvexHull ch;
 							iface->GetConvexHull(i,ch);
+							fprintf(stderr,"o Component %u\n", i);
 							for (uint32_t j=0; j<ch.m_nPoints; j++)
 							{
 								const double *pos = &ch.m_points[j*3];
-								fprintf(fph,"v %0.9f %0.9f %0.9f\n", pos[0], pos[1], pos[2]);
+								fprintf(stderr,"v %0.9f %0.9f %0.9f\n", pos[0], pos[1], pos[2]);
 							}
 							for (uint32_t j=0; j<ch.m_nTriangles; j++)
 							{
 								uint32_t i1 = ch.m_triangles[j*3+0]+baseIndex;
 								uint32_t i2 = ch.m_triangles[j*3+1]+baseIndex;
 								uint32_t i3 = ch.m_triangles[j*3+2]+baseIndex;
-								fprintf(fph,"f %d %d %d\n", i1, i2, i3);
+								fprintf(stderr,"f %d %d %d\n", i1, i2, i3);
 							}
 							baseIndex+=ch.m_nPoints;
-						}
-						fclose(fph);
-					}
-				}
-				// Save the decompostion as a single STL file
-				{
-					FILE *fph = fopen("decomp.stl","wb");
-					if ( fph )
-					{
-						printf("Saving convex hull results to a single file 'decomp.stl'\n");
-						for (uint32_t i=0; i<iface->GetNConvexHulls(); i++)
-						{
-							VHACD::IVHACD::ConvexHull ch;
-							iface->GetConvexHull(i,ch);
-							uint32_t baseIndex = 1;
-							if ( fph )
-							{
-								char hullName[2048];
-								snprintf(hullName,sizeof(hullName),"%s%03d", baseName.c_str(), i);
-								fprintf(fph,"solid %s\n", hullName);
-								for (uint32_t j=0; j<ch.m_nTriangles; j++)
-								{
-									uint32_t i1 = ch.m_triangles[j*3+0];
-									uint32_t i2 = ch.m_triangles[j*3+1];
-									uint32_t i3 = ch.m_triangles[j*3+2];
-
-									const double *p1 = &ch.m_points[i1*3];
-									const double *p2 = &ch.m_points[i2*3];
-									const double *p3 = &ch.m_points[i3*3];
-
-									double normal[3];
-									FLOAT_MATH::fm_computePlane(p1,p2,p3,normal);
-									fprintf(fph," facet normal %0.9f %0.9f %0.9f\n", normal[0], normal[1], normal[2]);
-									fprintf(fph,"  outer loop\n");
-									fprintf(fph,"   vertex %0.9f %0.9f %0.9f\n", p1[0], p1[1], p1[2]);
-									fprintf(fph,"   vertex %0.9f %0.9f %0.9f\n", p2[0], p2[1], p2[2]);
-									fprintf(fph,"   vertex %0.9f %0.9f %0.9f\n", p3[0], p3[1], p3[2]);
-									fprintf(fph,"  endloop\n");
-									fprintf(fph," endfacet\n");
-								}
-								fprintf(fph,"endsolid %s\n", hullName);
-							}
 						}
 					}
 				}
@@ -552,8 +428,6 @@ int main(int argc,const char **argv)
 
 			delete []points;
 			iface->Release();
-
-
 		}
 	}
 	return 0;
