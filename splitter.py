@@ -70,11 +70,13 @@ try:
 
 	if destination_collider is not None:
 		with open(destination_collider, 'wb') as destination_collider_file:
+			destination_collider_file.write(f'{len(components)}\n'.encode())
+			
 			for line in lines:
 				if line[0] == ord('o'):
 					destination_collider_file.write(f'o {components.pop(0)}\n'.encode())
 				elif line[0] == ord('v'):
-					destination_collider_file.write(line)
+					destination_collider_file.write(line[2:])
 
 except Exception as ex:
 	logging.error(f'VHACD execution failed {ex} {traceback.format_exc()}')
